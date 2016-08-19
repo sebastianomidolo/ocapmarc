@@ -4,6 +4,8 @@ class Book < ActiveRecord::Base
   self.primary_key='enum'
 
   has_many :items, foreign_key:'enum'
+  has_many :author_titles, foreign_key:'enum_titolo'
+  has_many :authors, through: :author_titles
 
   def title
     Book.estrai_campo('ti',self.enum)
