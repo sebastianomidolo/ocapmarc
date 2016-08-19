@@ -1,9 +1,0 @@
-# -*- mode: ruby;-*-
-
-desc 'Esporta dati ocap in marc21'
-
-task :esporta_marc21 => :environment do
-  puts "OK marc21"
-end
-
-
