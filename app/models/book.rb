@@ -1,5 +1,4 @@
 class Book < ActiveRecord::Base
-  # attr_accessible :title, :body
   self.table_name='magritte.storage_libri'
   self.primary_key='enum'
 
