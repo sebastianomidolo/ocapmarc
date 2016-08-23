@@ -7,11 +7,11 @@ task :esporta_unimarc => :environment do
   writer = MARC::Writer.new(fname)
 
 
-  primo_enum=101
-  ultimo_enum=200
+  primo_enum=1444
+  ultimo_enum=1500
   
-  Book.find_each(start:primo_enum,finish:ultimo_enum).each do |b|
-    puts "enum #{b.enum} => #{b.title}"
+  Book.where("estrai_campo_ocap(ocap_reclist,'nat')='S'").find_each(start:primo_enum,finish:ultimo_enum).each do |b|
+    puts "enum #{b.enum} [#{b.nat}] => #{b.title}"
     writer.write(b.to_unimarc)
   end
   
