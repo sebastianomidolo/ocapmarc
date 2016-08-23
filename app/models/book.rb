@@ -19,14 +19,6 @@ class Book < ActiveRecord::Base
     Book.estrai_campo('no',self.enum)
   end
 
-
-  def to_marc21
-    record = MARC::Record.new()
-    record.append(MARC::DataField.new('245', '0',  ' ', ['a', self.title]))
-    record.append(MARC::DataField.new('300', '0',  ' ', ['a', self.df]))
-    record
-  end
-
   def to_unimarc
     record = MARC::Record.new()
     record.append(MARC::DataField.new('200', '0',  ' ', ['a', self.title]))
