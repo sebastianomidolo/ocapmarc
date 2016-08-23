@@ -1,7 +1,10 @@
 source 'https://rubygems.org'
 
 # gem 'rails', '3.2.16'
-gem 'rails', '3.2.13'
+# gem 'rails', '3.2.13'
+# gem 'rails', '4.2.2'
+
+gem 'rails', '5.0.0'
 
 
 # Bundle edge Rails instead:

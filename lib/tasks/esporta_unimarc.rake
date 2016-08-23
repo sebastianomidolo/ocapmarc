@@ -4,9 +4,10 @@ desc 'Esporta dati ocap in unimarc'
 
 task :esporta_unimarc => :environment do
   writer = MARC::Writer.new('unimarc.dat')
-  
-  Book.all(limit:30000,order:'enum desc').each do |b|
-    # puts b.title
+
+
+  Book.find_each(start:1,finish:100).each do |b|
+    puts "enum #{b.enum} => #{b.title}"
     writer.write(b.to_unimarc)
   end
   
