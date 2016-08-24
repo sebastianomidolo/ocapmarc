@@ -13,6 +13,10 @@ class Book < ActiveRecord::Base
 
   has_one :serial_holding, foreign_key:'enum'
   
+  def ctime
+    Book.estrai_campo('ctime',self.enum)
+  end
+
   def title
     Book.estrai_campo('ti',self.enum)
   end
@@ -25,30 +29,172 @@ class Book < ActiveRecord::Base
     Book.estrai_campi('no',self.enum)
   end
 
-  def nat
+  def nopr
+    Book.estrai_campi('nopr',self.enum)
+  end
+
+  def nat # S periodico, M monografia, N spoglio, W 
     Book.estrai_campo('nat',self.enum)
     sql="select public.estrai_natura_ocap(ocap_reclist) as rv FROM #{Book.table_name} WHERE enum=#{self.id}"
     Book.connection.execute(sql)[0]['rv']
   end
 
-  def to_unimarc
-    record = MARC::Record.new()
-    record.append(MARC::DataField.new('200', '0',  ' ', ['a', self.title]))
-    record.append(MARC::DataField.new('215', '0',  ' ', ['a', self.df]))
-    self.no.each do |nota|
-      puts "nota: #{nota}"
-      record.append(MARC::DataField.new('300', '0',  ' ', ['a', nota]))
-    end
-    if !self.serial_holding.nil?
-      puts "holding: #{self.serial_holding.inspect}"
-      puts "consistenza #{self.serial_holding.consistenza}"
-    end
-    self.items.each do |i|
-      record.append(MARC::DataField.new('995', ' ',  ' ', ['k', i.collocazione]))
-    end
-    record
+  def plpuye
+    Book.estrai_campo('plpuye',self.enum)
   end
 
+  def url
+    Book.estrai_campo('url',self.enum)
+  end
+
+  def luogo_edizione
+    return nil if self.plpuye.nil?
+    self.plpuye.split(/,|:/).first  
+  end
+
+  def editore_edizione
+    return nil if self.plpuye.nil?
+    ed = self.plpuye.split(/,|:/,2).last
+    return nil if ed.nil?
+    ed.split(/,/).first 
+  end
+
+  def anno_edizione
+    return nil if self.plpuye.nil?
+    ed = self.plpuye.split(/,|:/,2).last
+    return nil if ed.nil?
+    ed.split(/,/).last 
+  end
+
+  def to_unimarc
+    record = MARC::Record.new()
+    puts "enum: #{enum}"
+    #puts "ctime: #{ctime.split(' ').first}"
+    # indico con #sist le righe sicuramente da sistemare
+    # 099$c ctime
+    record.append(MARC::DataField.new('099', '0',  ' ', ['c', self.ctime.split(' ').first]))
+
+    # 090$a enum
+    record.append(MARC::DataField.new('090', '0',  ' ', ['a', self.enum.to_s]))
+
+    # 101$a Lingua
+    record.append(MARC::DataField.new('101', '0',  ' ', ['a', "ita"]))
+
+    # 101$a Paese
+    record.append(MARC::DataField.new('102', '0',  ' ', ['a', "IT"]))
+
+    # 200$a title ??
+    record.append(MARC::DataField.new('200', '1',  ' ', ['a', self.title]))
+
+    # 210$a luogo_edizione
+    if !self.luogo_edizione.nil?
+      record.append(MARC::DataField.new('210', '1',  ' ', ['a', luogo_edizione]))
+    end
+
+    # 210$c editore_edizione
+    if !self.editore_edizione.nil?
+      record.append(MARC::DataField.new('210', '1',  ' ', ['c', editore_edizione]))
+    end
+
+    # 210$d anno_edizione
+    if !self.anno_edizione.nil?
+      record.append(MARC::DataField.new('210', '1',  ' ', ['d', anno_edizione]))
+    end
+
+    # 215$d df
+    record.append(MARC::DataField.new('215', '0',  ' ', ['d', self.df]))
+
+    # 300$a note
+    self.no.each do |nota|
+      #puts "nota: #{nota}"
+      record.append(MARC::DataField.new('300', '0',  ' ', ['a', nota]))
+    end
+
+    # 300$a consistenza (qui non so mai se mettterlo a livello di BIBLIO o di ITEM... 
+    if !self.serial_holding.nil?
+      #puts "holding: #{self.serial_holding.inspect}"
+      #puts "consistenza #{self.serial_holding.consistenza}"
+      record.append(MARC::DataField.new('300', '0',  ' ', ['a', "Posseduto: #{self.serial_holding.consistenza}"]))
+    end
+
+    # 200$f autore ??
+    # 700$a autore
+    # 700$b ulteriore elemento del nome
+    # 701 autore
+    # 702 autore
+
+    # 326$a nopr
+    self.no.each do |nopr|
+      record.append(MARC::DataField.new('326', '',  ' ', ['a', nopr]))
+    end
+
+    # 500$a title
+    record.append(MARC::DataField.new('500', '1',  ' ', ['a', self.title]))
+
+    # 801$a 
+    record.append(MARC::DataField.new('801', ' ',  '0', ['a', "IT"]))
+    # 801$b 
+    record.append(MARC::DataField.new('801', ' ',  '0', ['b', "APM-OCAP ("+self.ctime.split(' ').last+")"]))
+    # 801$c
+    record.append(MARC::DataField.new('801', ' ',  '0', ['c', self.ctime.split(' ').first]))
+    # 801$f 
+    record.append(MARC::DataField.new('801', ' ',  '0', ['f', "OCAP"]))
+
+    # 856$1 URL
+    record.append(MARC::DataField.new('856', '4',  ' ', ['1', self.url]))
+		
+    # 942$c  nat : M => BK, S => CR, N => ??  #sist
+    record.append(MARC::DataField.new('856', '4',  ' ', ['1', self.nat]))
+
+    #  SEZIONE 995 (ITEM)
+    self.items.each do |i|
+			
+      # 995$0 default			
+      record.append(MARC::DataField.new('995', ' ',  ' ', ['0', '1']))
+		
+      # 995$2 default			
+      record.append(MARC::DataField.new('995', ' ',  ' ', ['2', '0']))
+
+      # 995$3 default			
+      record.append(MARC::DataField.new('995', ' ',  ' ', ['3', '1']))
+
+      # 995$5 default			
+      record.append(MARC::DataField.new('995', ' ',  ' ', ['6', '1']))
+
+      # 995$6 default			
+      record.append(MARC::DataField.new('995', ' ',  ' ', ['2', '0']))
+
+      # 995$7 URL (anche in BIBLIO)
+      record.append(MARC::DataField.new('995', ' ',  ' ', ['7', self.url]))
+
+      # 995$a 
+      record.append(MARC::DataField.new('995', ' ',  ' ', ['a', "Archivio Primo Moroni"]))
+
+      # 995$b 
+      record.append(MARC::DataField.new('995', ' ',  ' ', ['b', "APM001"]))
+
+      # 995$c 
+      record.append(MARC::DataField.new('995', ' ',  ' ', ['c', "APM001"]))
+
+      # 995$k collocazione			
+      record.append(MARC::DataField.new('995', ' ',  ' ', ['k', i.collocazione]))
+
+      # 995$f ctime
+      record.append(MARC::DataField.new('995', ' ',  ' ', ['f', self.ctime.split(' ').first]))
+
+      # 995$o nat
+      record.append(MARC::DataField.new('995', ' ',  ' ', ['o', '1']))  # prova, non so bene cosa ci sia in nat, deve diventare S =>CR / M => BK
+
+      # 995$r nat : M => BK, S => CR, N => ??  #sist
+      record.append(MARC::DataField.new('995', ' ',  ' ', ['r', self.nat]))  # prova, non so bene cosa ci sia in nat, deve diventare S =>CR / M => BK
+
+      # 995$u I FONDI (rimando) P7 "Fondo Sergio Spazzali" / P9 "Fondo Roberto Volponi"  #sist
+      record.append(MARC::DataField.new('995', ' ',  ' ', ['r', self.nat]))  # prova, non so bene cosa ci sia in nat, deve diventare S =>CR / M => BK
+    end
+		
+    record
+  end
+  
   def Book.estrai_campo(label,record_enum)
     sql="select public.estrai_campo_ocap(ocap_reclist,'#{label}') as rv FROM #{Book.table_name} WHERE enum=#{record_enum}"
     Book.connection.execute(sql)[0]['rv']

@@ -3,7 +3,7 @@
 desc 'Esporta dati ocap in unimarc'
 
 task :esporta_unimarc => :environment do
-  fname="/tmp/unimarc.dat"
+  fname="/tmp/unimarc.mrc"
   writer = MARC::Writer.new(fname)
 
 
