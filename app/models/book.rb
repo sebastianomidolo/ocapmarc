@@ -123,6 +123,17 @@ class Book < ActiveRecord::Base
     # 701 autore
     # 702 autore
 
+    self.author_titles.each do |at|
+      puts "at: #{at.inspect}"
+      au=at.author
+      # Da perfezionare tenendo conto della casistica:
+      tag = at.livelloresp=='1' ? '700' : '702'
+      data_field=MARC::DataField.new(tag, ' ',  '1')
+      data_field.subfields << MARC::Subfield.new('a',au.heading)
+      data_field.subfields << MARC::Subfield.new('9',au.id.to_s)
+      record.append(data_field)
+    end
+
     # 326$a nopr
     self.no.each do |nopr|
       record.append(MARC::DataField.new('326', '',  ' ', ['a', nopr]))
@@ -148,50 +159,54 @@ class Book < ActiveRecord::Base
 
     #  SEZIONE 995 (ITEM)
     self.items.each do |i|
+
+      data_field=MARC::DataField.new('995', ' ',  ' ')
+
+      # 995$0 default
+      data_field.subfields << MARC::Subfield.new('0','1')
 			
-      # 995$0 default			
-      record.append(MARC::DataField.new('995', ' ',  ' ', ['0', '1']))
-		
       # 995$2 default			
-      record.append(MARC::DataField.new('995', ' ',  ' ', ['2', '0']))
+      data_field.subfields << MARC::Subfield.new('2', '0')
 
-      # 995$3 default			
-      record.append(MARC::DataField.new('995', ' ',  ' ', ['3', '1']))
-
-      # 995$5 default			
-      record.append(MARC::DataField.new('995', ' ',  ' ', ['6', '1']))
+      # 995$3 default
+      data_field.subfields << MARC::Subfield.new('3', '1')
+      
+      # 995$5 default
+      data_field.subfields << MARC::Subfield.new('6', '1')
 
       # 995$6 default			
-      record.append(MARC::DataField.new('995', ' ',  ' ', ['2', '0']))
+      data_field.subfields << MARC::Subfield.new('2', '0')
 
       # 995$7 URL (anche in BIBLIO)
-      record.append(MARC::DataField.new('995', ' ',  ' ', ['7', self.url]))
+      data_field.subfields << MARC::Subfield.new('7', self.url)
 
       # 995$a 
-      record.append(MARC::DataField.new('995', ' ',  ' ', ['a', "Archivio Primo Moroni"]))
+      data_field.subfields << MARC::Subfield.new('a', "Archivio Primo Moroni")
 
       # 995$b 
-      record.append(MARC::DataField.new('995', ' ',  ' ', ['b', "APM001"]))
+      data_field.subfields << MARC::Subfield.new('b', "APM001")
 
       # 995$c 
-      record.append(MARC::DataField.new('995', ' ',  ' ', ['c', "APM001"]))
+      data_field.subfields << MARC::Subfield.new('c', "APM001")
 
       # 995$k collocazione			
-      record.append(MARC::DataField.new('995', ' ',  ' ', ['k', i.collocazione]))
+      data_field.subfields << MARC::Subfield.new('k', i.collocazione)
 
       # 995$f ctime
-      record.append(MARC::DataField.new('995', ' ',  ' ', ['f', self.ctime.split(' ').first]))
-
+      data_field.subfields << MARC::Subfield.new('f', self.ctime.split(' ').first)
+      
       # 995$o nat
-      record.append(MARC::DataField.new('995', ' ',  ' ', ['o', '1']))  # prova, non so bene cosa ci sia in nat, deve diventare S =>CR / M => BK
+      data_field.subfields << MARC::Subfield.new('o', '1')
 
       # 995$r nat : M => BK, S => CR, N => ??  #sist
-      record.append(MARC::DataField.new('995', ' ',  ' ', ['r', self.nat]))  # prova, non so bene cosa ci sia in nat, deve diventare S =>CR / M => BK
-
+      data_field.subfields << MARC::Subfield.new('r', self.nat)
+      
       # 995$u I FONDI (rimando) P7 "Fondo Sergio Spazzali" / P9 "Fondo Roberto Volponi"  #sist
-      record.append(MARC::DataField.new('995', ' ',  ' ', ['r', self.nat]))  # prova, non so bene cosa ci sia in nat, deve diventare S =>CR / M => BK
+      data_field.subfields << MARC::Subfield.new('r', self.nat)
+
+      record.append(data_field)
     end
-		
+    
     record
   end
   
