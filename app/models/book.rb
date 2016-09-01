@@ -1,3 +1,4 @@
+# coding: utf-8
 class Book < ActiveRecord::Base
   self.table_name='magritte.storage_libri'
   self.primary_key='enum'
@@ -124,13 +125,16 @@ class Book < ActiveRecord::Base
     # 702 autore
 
     self.author_titles.each do |at|
-      puts "at: #{at.inspect}"
-      au=at.author
-      # Da perfezionare tenendo conto della casistica:
-      tag = at.livelloresp=='1' ? '700' : '702'
-      data_field=MARC::DataField.new(tag, ' ',  '1')
-      data_field.subfields << MARC::Subfield.new('a',au.heading)
-      data_field.subfields << MARC::Subfield.new('9',au.id.to_s)
+
+      data_field=MARC::DataField.new(at.unimarc_tag, ' ',  '1')
+      if at.author.nil?
+        # Autore non controllato
+        data_field.subfields << MARC::Subfield.new('a',at.noncontrollato)
+      else
+        au=at.author
+        data_field.subfields << MARC::Subfield.new('a',au.heading)
+        data_field.subfields << MARC::Subfield.new('9',au.id.to_s)
+      end
       record.append(data_field)
     end
 

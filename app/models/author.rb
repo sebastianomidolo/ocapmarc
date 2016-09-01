@@ -1,3 +1,4 @@
+# coding: utf-8
 class Author < ActiveRecord::Base
   self.table_name='magritte.storage_autori'
   self.primary_key='enum'
@@ -11,6 +12,18 @@ class Author < ActiveRecord::Base
 
   def ctime
     Author.estrai_campo('ctime',self.enum)
+  end
+
+  def tipo
+    tipo=Author.estrai_campo('tipo',self.enum)
+    if tipo.blank?
+      puts "non trovato tipo per autore #{self.id} - #{self.heading}"
+      # Tiro a indovinare: se l'intestazione contiene una sola virgola, assumo tipo "0" (autore personale)
+      # se non ci sono virgole o se ce ne sono due o più, assumo "1" (autore ente)
+      v=self.heading.count(',')
+      tipo=v==1 ? '0' : '1'
+    end
+    tipo
   end
 
   def to_unimarc
