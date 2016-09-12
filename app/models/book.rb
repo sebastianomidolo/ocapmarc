@@ -18,8 +18,17 @@ class Book < ActiveRecord::Base
     Book.estrai_campo('ctime',self.enum)
   end
 
-  def title
-    Book.estrai_campo('ti',self.enum)
+  def ctimeTime
+    self.ctime.split(' ').first
+  end
+
+  def ctimeUser
+    self.ctime.split(' ').last
+  end
+
+  def title  # rimuovo gli asterischi nel titolo
+    a = Book.estrai_campo('ti',self.enum)
+    a.gsub("*", "")
   end
 
   def df
@@ -37,7 +46,24 @@ class Book < ActiveRecord::Base
   def nat # S periodico, M monografia, N spoglio, W 
     Book.estrai_campo('nat',self.enum)
     sql="select public.estrai_natura_ocap(ocap_reclist) as rv FROM #{Book.table_name} WHERE enum=#{self.id}"
-    Book.connection.execute(sql)[0]['rv']
+    a = Book.connection.execute(sql)[0]['rv']
+
+    #B (20) Titolo di raggruppamento non controllato
+    #C (1) Collezione
+    #M (6122) Monografie = BK
+    #N (834) Spogli
+    #P (1) Titolo parallelo
+    #S (966) Periodici = CR
+    #U (2) Soggetto
+    case a
+    when "M"
+      "BK"
+    when "S"
+      "CR"
+    else
+      puts "natura indefinita " + self.nat
+      self.nat
+    end
   end
 
   def plpuye
@@ -70,10 +96,9 @@ class Book < ActiveRecord::Base
   def to_unimarc
     record = MARC::Record.new()
     puts "enum: #{enum}"
-    #puts "ctime: #{ctime.split(' ').first}"
-    # indico con #sist le righe sicuramente da sistemare
+
     # 099$c ctime
-    record.append(MARC::DataField.new('099', '0',  ' ', ['c', self.ctime.split(' ').first]))
+    record.append(MARC::DataField.new('099', '0',  ' ', ['c', self.ctimeTime]))
 
     # 090$a enum
     record.append(MARC::DataField.new('090', '0',  ' ', ['a', self.enum.to_s]))
@@ -84,7 +109,7 @@ class Book < ActiveRecord::Base
     # 101$a Paese
     record.append(MARC::DataField.new('102', '0',  ' ', ['a', "IT"]))
 
-    # 200$a title ??
+    # 200$a title [il 200 per Koha è obbligatorio]
     record.append(MARC::DataField.new('200', '1',  ' ', ['a', self.title]))
 
     # 210$a luogo_edizione
@@ -111,35 +136,45 @@ class Book < ActiveRecord::Base
       record.append(MARC::DataField.new('300', '0',  ' ', ['a', nota]))
     end
 
-    # 300$a consistenza (qui non so mai se mettterlo a livello di BIBLIO o di ITEM... 
+    # 300$a consistenza  
     if !self.serial_holding.nil?
       #puts "holding: #{self.serial_holding.inspect}"
       #puts "consistenza #{self.serial_holding.consistenza}"
       record.append(MARC::DataField.new('300', '0',  ' ', ['a', "Posseduto: #{self.serial_holding.consistenza}"]))
     end
 
-    # 200$f autore ??
-    # 700$a autore
-    # 700$b ulteriore elemento del nome
-    # 701 autore
-    # 702 autore
-
     self.author_titles.each do |at|
-
       data_field=MARC::DataField.new(at.unimarc_tag, ' ',  '1')
       if at.author.nil?
         # Autore non controllato
         data_field.subfields << MARC::Subfield.new('a',at.noncontrollato)
+
+	# 200$f autore (metto tutti in 200$f mentre qualcuno potrebbe andare in 200$g) [il 200 per Koha è obbligatorio]
+	if at.unimarc_tag == "700" or at.unimarc_tag == "710"
+	  record.append(MARC::DataField.new('200', '0',  ' ', ['f', at.noncontrollato]))
+	else
+	  record.append(MARC::DataField.new('200', '0',  ' ', ['g', at.noncontrollato]))
+	end
+	record.append(data_field)
       else
-        au=at.author
-        data_field.subfields << MARC::Subfield.new('a',au.heading)
-        data_field.subfields << MARC::Subfield.new('9',au.id.to_s)
+        au=at.author				
+	if au.id.to_s != "119" #Se Autore ha enum 119 non faccio nulla
+          data_field.subfields << MARC::Subfield.new('a',au.heading)
+          data_field.subfields << MARC::Subfield.new('9',au.id.to_s)
+	
+	  # 200$f autore (metto tutti in 200$f mentre qualcuno potrebbe andare in 200$g) [il 200 per Koha è obbligatorio]
+	  if at.unimarc_tag == "700" or at.unimarc_tag == "710"
+	    record.append(MARC::DataField.new('200', '0',  ' ', ['f', au.heading]))
+	  else
+	    record.append(MARC::DataField.new('200', '0',  ' ', ['g', au.heading]))
+	  end
+	  record.append(data_field)
+   	end
       end
-      record.append(data_field)
     end
 
     # 326$a nopr
-    self.no.each do |nopr|
+    self.nopr.each do |nopr|
       record.append(MARC::DataField.new('326', '',  ' ', ['a', nopr]))
     end
 
@@ -149,40 +184,52 @@ class Book < ActiveRecord::Base
     # 801$a 
     record.append(MARC::DataField.new('801', ' ',  '0', ['a', "IT"]))
     # 801$b 
-    record.append(MARC::DataField.new('801', ' ',  '0', ['b', "APM-OCAP ("+self.ctime.split(' ').last+")"]))
+    record.append(MARC::DataField.new('801', ' ',  '0', ['b', "APM-OCAP ("+self.ctimeUser+")"]))
     # 801$c
-    record.append(MARC::DataField.new('801', ' ',  '0', ['c', self.ctime.split(' ').first]))
+    record.append(MARC::DataField.new('801', ' ',  '0', ['c', self.ctimeTime]))
     # 801$f 
     record.append(MARC::DataField.new('801', ' ',  '0', ['f', "OCAP"]))
 
     # 856$1 URL
-    record.append(MARC::DataField.new('856', '4',  ' ', ['1', self.url]))
+    if self.url != "" 
+      record.append(MARC::DataField.new('856', '4',  ' ', ['1', self.url]))
+    end
 		
-    # 942$c  nat : M => BK, S => CR, N => ??  #sist
-    record.append(MARC::DataField.new('856', '4',  ' ', ['1', self.nat]))
+    # 942$c  nat
+    record.append(MARC::DataField.new('942', ' ',  ' ', ['c', self.nat]))
+    
+    # 942$2  classification source (è una prova)
+    # record.append(MARC::DataField.new('942', ' ',  ' ', ['2', "apm"]))
 
+    # 952$2  classification source (è una prova)
+    record.append(MARC::DataField.new('952', ' ',  ' ', ['2', "apm"]))
+
+    copia = 0
     #  SEZIONE 995 (ITEM)
     self.items.each do |i|
 
       data_field=MARC::DataField.new('995', ' ',  ' ')
 
-      # 995$0 default
-      data_field.subfields << MARC::Subfield.new('0','1')
+      # 995$0 withdrown
+      data_field.subfields << MARC::Subfield.new('0','0')
 			
-      # 995$2 default			
+      # 995$2 copia smarrita
       data_field.subfields << MARC::Subfield.new('2', '0')
 
-      # 995$3 default
-      data_field.subfields << MARC::Subfield.new('3', '1')
+      # 995$3 restrizioni d'uso
+      data_field.subfields << MARC::Subfield.new('3', '0')
       
-      # 995$5 default
-      data_field.subfields << MARC::Subfield.new('6', '1')
+      # 995$5 data inventario (yyyy-mm-dd)
+      #data_field.subfields << MARC::Subfield.new('5', self.ctimeTime)
 
-      # 995$6 default			
-      data_field.subfields << MARC::Subfield.new('2', '0')
+      # 995$6 numero della copia	
+      copia += copia
+      data_field.subfields << MARC::Subfield.new('2', copia.to_s)
 
       # 995$7 URL (anche in BIBLIO)
-      data_field.subfields << MARC::Subfield.new('7', self.url)
+      if self.url!=""
+	data_field.subfields << MARC::Subfield.new('7', self.url)
+      end
 
       # 995$a 
       data_field.subfields << MARC::Subfield.new('a', "Archivio Primo Moroni")
@@ -195,22 +242,20 @@ class Book < ActiveRecord::Base
 
       # 995$k collocazione			
       data_field.subfields << MARC::Subfield.new('k', i.collocazione)
-
-      # 995$f ctime
-      data_field.subfields << MARC::Subfield.new('f', self.ctime.split(' ').first)
       
-      # 995$o nat
+      # 995$o not for loan
       data_field.subfields << MARC::Subfield.new('o', '1')
 
-      # 995$r nat : M => BK, S => CR, N => ??  #sist
+      # 995$r nat 
       data_field.subfields << MARC::Subfield.new('r', self.nat)
       
       # 995$u I FONDI (rimando) P7 "Fondo Sergio Spazzali" / P9 "Fondo Roberto Volponi"  #sist
-      data_field.subfields << MARC::Subfield.new('r', self.nat)
-
+      fondo = i.collocazione[0,2]=="P7" ? "Fondo Sergio Spazzali" : (i.collocazione[0,2]=="P9" ? "Fondo Roberto Volponi" : "")
+      if fondo != ""
+      	data_field.subfields << MARC::Subfield.new('u', fondo)
+      end
       record.append(data_field)
     end
-    
     record
   end
   
