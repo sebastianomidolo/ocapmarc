@@ -17,6 +17,7 @@ task :esporta_autori => :environment do
 
   cnt=0
   Author.find_each(start:primo_enum,finish:ultimo_enum).each do |a|
+    next if a.heading.blank?
     cnt+=1
     puts "enum autore #{a.enum} => #{a.heading}"
     writer.write(a.to_unimarc)

@@ -44,7 +44,6 @@ class Book < ActiveRecord::Base
   end
 
   def nat # S periodico, M monografia, N spoglio, W 
-    Book.estrai_campo('nat',self.enum)
     sql="select public.estrai_natura_ocap(ocap_reclist) as rv FROM #{Book.table_name} WHERE enum=#{self.id}"
     a = Book.connection.execute(sql)[0]['rv']
 
@@ -61,8 +60,8 @@ class Book < ActiveRecord::Base
     when "S"
       "CR"
     else
-      puts "natura indefinita " + self.nat
-      self.nat
+      puts "natura indefinita " + a
+      a
     end
   end
 
@@ -103,6 +102,9 @@ class Book < ActiveRecord::Base
     # 090$a enum
     record.append(MARC::DataField.new('090', '0',  ' ', ['a', self.enum.to_s]))
 
+    # 001
+    record.append(MARC::ControlField.new('001', self.enum.to_s))
+    
     # 101$a Lingua
     record.append(MARC::DataField.new('101', '0',  ' ', ['a', "ita"]))
 
@@ -205,6 +207,7 @@ class Book < ActiveRecord::Base
     record.append(MARC::DataField.new('952', ' ',  ' ', ['2', "apm"]))
 
     copia = 0
+
     #  SEZIONE 995 (ITEM)
     self.items.each do |i|
 
@@ -218,7 +221,7 @@ class Book < ActiveRecord::Base
 
       # 995$3 restrizioni d'uso
       data_field.subfields << MARC::Subfield.new('3', '0')
-      
+
       # 995$5 data inventario (yyyy-mm-dd)
       #data_field.subfields << MARC::Subfield.new('5', self.ctimeTime)
 
@@ -248,11 +251,13 @@ class Book < ActiveRecord::Base
 
       # 995$r nat 
       data_field.subfields << MARC::Subfield.new('r', self.nat)
-      
-      # 995$u I FONDI (rimando) P7 "Fondo Sergio Spazzali" / P9 "Fondo Roberto Volponi"  #sist
-      fondo = i.collocazione[0,2]=="P7" ? "Fondo Sergio Spazzali" : (i.collocazione[0,2]=="P9" ? "Fondo Roberto Volponi" : "")
-      if fondo != ""
-      	data_field.subfields << MARC::Subfield.new('u', fondo)
+
+      if !i.collocazione.nil?
+        # 995$u I FONDI (rimando) P7 "Fondo Sergio Spazzali" / P9 "Fondo Roberto Volponi"  #sist
+        fondo = i.collocazione[0,2]=="P7" ? "Fondo Sergio Spazzali" : (i.collocazione[0,2]=="P9" ? "Fondo Roberto Volponi" : "")
+        if fondo != ""
+      	  data_field.subfields << MARC::Subfield.new('u', fondo)
+        end
       end
       record.append(data_field)
     end
