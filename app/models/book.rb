@@ -7,8 +7,8 @@ class Book < ActiveRecord::Base
   has_many :author_titles, foreign_key:'enum_titolo'
   has_many :authors, through: :author_titles
 
-  has_many :book_book_from, foreign_key:'enum_from', class_name:'BookBook'
-  has_many :book_book_to, foreign_key:'enum_to', class_name:'BookBook'
+  has_many :book_book_from, foreign_key:'enum_to', class_name:'BookBook'
+  has_many :book_book_to, foreign_key:'enum_from', class_name:'BookBook'
   has_many :titoli_contenuti, class_name:'Book', through: :book_book_from, source:'book_to'
   has_many :titoli_legati, class_name:'Book', through: :book_book_to, source:'book_from'
 
@@ -162,7 +162,7 @@ class Book < ActiveRecord::Base
         au=at.author				
 	if au.id.to_s != "119" #Se Autore ha enum 119 non faccio nulla
           data_field.subfields << MARC::Subfield.new('a',au.heading)
-          data_field.subfields << MARC::Subfield.new('9',au.id.to_s)
+  #        data_field.subfields << MARC::Subfield.new('9',au.id.to_s) --------------> provo senza il 9
 	
 	  # 200$f autore (metto tutti in 200$f mentre qualcuno potrebbe andare in 200$g) [il 200 per Koha è obbligatorio]
 	  if at.unimarc_tag == "700" or at.unimarc_tag == "710"
@@ -260,6 +260,23 @@ class Book < ActiveRecord::Base
         end
       end
       record.append(data_field)
+    end
+    self.book_book_to.each do |bb|
+      puts "Legame to   codice #{bb.codice} con enum #{bb.enum_to}: #{bb.book_to.title}"
+    end
+    self.book_book_from.each do |bb|
+      puts "Legame from codice #{bb.codice} con enum #{bb.enum_from}: #{bb.book_from.title}"
+      case bb.codice
+      when '51'
+        puts "Codice 51"
+        target_book=bb.book_from
+        data_field=MARC::DataField.new('461', ' ',  '0')
+        data_field.subfields << MARC::Subfield.new('0', bb.enum_from.to_s)
+        data_field.subfields << MARC::Subfield.new('t', target_book.title)
+        record.append(data_field)
+      else
+        puts "Codice di legame #{bb.codice} non trattato"
+      end
     end
     record
   end
