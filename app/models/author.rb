@@ -59,7 +59,11 @@ class Author < ActiveRecord::Base
     record.append(MARC::DataField.new('100', ' ',  ' ', ['a', self.unimarc_100]))
     t = self.tipo=='1' ? 'CO' : 'NP'
     record.append(MARC::DataField.new('152', ' ',  ' ', ['b', t]))
-    record.append(MARC::DataField.new('200', ' ',  ' ', ['a', self.heading]))
+    if t=='NP'
+      record.append(MARC::DataField.new('200', ' ',  ' ', ['a', self.heading]))
+    else
+      record.append(MARC::DataField.new('210', ' ',  ' ', ['a', self.heading]))
+    end
     puts "#{self.id} [#{t}] => #{self.heading}"
     record
   end
