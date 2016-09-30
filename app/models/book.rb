@@ -271,7 +271,7 @@ class Book < ActiveRecord::Base
         puts "Codice 51"
         target_book=bb.book_from
         data_field=MARC::DataField.new('461', ' ',  '0')
-        data_field.subfields << MARC::Subfield.new('0', bb.enum_from.to_s)
+        data_field.subfields << MARC::Subfield.new('0', target_book.enum.to_s)
         data_field.subfields << MARC::Subfield.new('t', target_book.title)
         record.append(data_field)
       else
