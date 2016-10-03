@@ -89,21 +89,46 @@ class Book < ActiveRecord::Base
     return nil if self.plpuye.nil?
     ed = self.plpuye.split(/,|:/,2).last
     return nil if ed.nil?
-    ed.split(/,/).last 
+    ed.split(/,/).last
+  end
+
+	# Prova LDR
+
+  def aLDR
+    case nat
+    when "BK"
+      "    nam"
+    when "CR"
+      "    nas"
+    when "N"
+      "    naa"
+    else
+			"    n"
+    end
+  end
+	
+  def rec100a
+    '20161001         |||u0itay50'
   end
 
   def to_unimarc
     record = MARC::Record.new()
     puts "enum: #{enum}"
 
-    # 099$c ctime
-    record.append(MARC::DataField.new('099', '0',  ' ', ['c', self.ctimeTime]))
+    # LDR NON FUNZIONA
+    # record.append(MARC::DataField.new('LDR', '',  '', ['', aLDR]))
+
+    # 001
+    record.append(MARC::ControlField.new('001', self.enum.to_s))
 
     # 090$a enum
     record.append(MARC::DataField.new('090', '0',  ' ', ['a', self.enum.to_s]))
 
-    # 001
-    record.append(MARC::ControlField.new('001', self.enum.to_s))
+    # 099$c ctime
+    record.append(MARC::DataField.new('099', '0',  ' ', ['c', self.ctimeTime]))
+
+    # 100$a
+    record.append(MARC::DataField.new('100', '0',  ' ', ['a', rec100a]))
     
     # 101$a Lingua
     record.append(MARC::DataField.new('101', '0',  ' ', ['a', "ita"]))
@@ -114,20 +139,36 @@ class Book < ActiveRecord::Base
     # 200$a title [il 200 per Koha è obbligatorio]
     record.append(MARC::DataField.new('200', '1',  ' ', ['a', self.title]))
 
-    # 210$a luogo_edizione
+
+    # SEZIONE 210
+    data_field=MARC::DataField.new('210', '1',  '')
+    is210=false
+ 
+   # 210$a luogo_edizione
     if !self.luogo_edizione.nil?
-      record.append(MARC::DataField.new('210', '1',  ' ', ['a', luogo_edizione]))
+      data_field.subfields << MARC::Subfield.new('a',luogo_edizione)
+      is201=true
+      #record.append(MARC::DataField.new('210', '1',  ' ', ['a', luogo_edizione]))
     end
 
     # 210$c editore_edizione
     if !self.editore_edizione.nil?
-      record.append(MARC::DataField.new('210', '1',  ' ', ['c', editore_edizione]))
+      is201=true
+      data_field.subfields << MARC::Subfield.new('c',editore_edizione)
+      #record.append(MARC::DataField.new('210', '1',  ' ', ['c', editore_edizione]))
     end
 
     # 210$d anno_edizione
     if !self.anno_edizione.nil?
-      record.append(MARC::DataField.new('210', '1',  ' ', ['d', anno_edizione]))
+      is201=true
+      data_field.subfields << MARC::Subfield.new('d',anno_edizione)
+      #record.append(MARC::DataField.new('210', '1',  ' ', ['d', anno_edizione]))
     end
+
+    if (is201) 					
+      record.append(data_field)
+    end
+    # FINE sezione 210
 
     # 215$d df
     record.append(MARC::DataField.new('215', '0',  ' ', ['d', self.df]))
@@ -154,7 +195,7 @@ class Book < ActiveRecord::Base
 	# 200$f autore (metto tutti in 200$f mentre qualcuno potrebbe andare in 200$g) [il 200 per Koha è obbligatorio]
 	if at.unimarc_tag == "700" or at.unimarc_tag == "710"
 	  record.append(MARC::DataField.new('200', '0',  ' ', ['f', at.noncontrollato]))
-	else
+        else
 	  record.append(MARC::DataField.new('200', '0',  ' ', ['g', at.noncontrollato]))
 	end
 	record.append(data_field)
@@ -164,15 +205,15 @@ class Book < ActiveRecord::Base
           data_field.subfields << MARC::Subfield.new('a',au.heading)
   #        data_field.subfields << MARC::Subfield.new('9',au.id.to_s) --------------> provo senza il 9
 	
-	  # 200$f autore (metto tutti in 200$f mentre qualcuno potrebbe andare in 200$g) [il 200 per Koha è obbligatorio]
-	  if at.unimarc_tag == "700" or at.unimarc_tag == "710"
+  # 200$f autore (metto tutti in 200$f mentre qualcuno potrebbe andare in 200$g) [il 200 per Koha è obbligatorio]
+          if at.unimarc_tag == "700" or at.unimarc_tag == "710"
 	    record.append(MARC::DataField.new('200', '0',  ' ', ['f', au.heading]))
 	  else
 	    record.append(MARC::DataField.new('200', '0',  ' ', ['g', au.heading]))
 	  end
-	  record.append(data_field)
-   	end
-      end
+	    record.append(data_field)
+        end
+     end
     end
 
     # 326$a nopr
@@ -182,30 +223,26 @@ class Book < ActiveRecord::Base
 
     # 500$a title
     record.append(MARC::DataField.new('500', '1',  ' ', ['a', self.title]))
+		
+    # 801 SEZIONE 801 
+    data_field=MARC::DataField.new('801', ' ',  ' ')
+    data_field.subfields << MARC::Subfield.new('a','IT')
+    data_field.subfields << MARC::Subfield.new('b','APM-OCAP ('+self.ctimeUser+')')
+    data_field.subfields << MARC::Subfield.new('c',self.ctimeTime)
+    data_field.subfields << MARC::Subfield.new('f','OCAP')
+    record.append(data_field)
+    # FINE sezione 801
 
-    # 801$a 
-    record.append(MARC::DataField.new('801', ' ',  '0', ['a', "IT"]))
-    # 801$b 
-    record.append(MARC::DataField.new('801', ' ',  '0', ['b', "APM-OCAP ("+self.ctimeUser+")"]))
-    # 801$c
-    record.append(MARC::DataField.new('801', ' ',  '0', ['c', self.ctimeTime]))
-    # 801$f 
-    record.append(MARC::DataField.new('801', ' ',  '0', ['f', "OCAP"]))
 
     # 856$1 URL
     if self.url != "" 
       record.append(MARC::DataField.new('856', '4',  ' ', ['1', self.url]))
+			record.append(MARC::DataField.new('856', '4',  ' ', ['3', 'PDF']))
     end
 		
     # 942$c  nat
     record.append(MARC::DataField.new('942', ' ',  ' ', ['c', self.nat]))
     
-    # 942$2  classification source (è una prova)
-    # record.append(MARC::DataField.new('942', ' ',  ' ', ['2', "apm"]))
-
-    # 952$2  classification source (è una prova)
-    record.append(MARC::DataField.new('952', ' ',  ' ', ['2', "apm"]))
-
     copia = 0
 
     #  SEZIONE 995 (ITEM)
@@ -231,7 +268,7 @@ class Book < ActiveRecord::Base
 
       # 995$7 URL (anche in BIBLIO)
       if self.url!=""
-	data_field.subfields << MARC::Subfield.new('7', self.url)
+			data_field.subfields << MARC::Subfield.new('7', self.url)
       end
 
       # 995$a 
@@ -242,6 +279,9 @@ class Book < ActiveRecord::Base
 
       # 995$c 
       data_field.subfields << MARC::Subfield.new('c', "APM001")
+
+			# 995$f (BARCODE) 
+      data_field.subfields << MARC::Subfield.new('f', "2016-"+self.enum.to_s.rjust(4,"0"))
 
       # 995$k collocazione			
       data_field.subfields << MARC::Subfield.new('k', i.collocazione)
@@ -280,7 +320,8 @@ class Book < ActiveRecord::Base
     end
     record
   end
-  
+	#FINE SEZIONE 995  
+
   def Book.estrai_campo(label,record_enum)
     sql="select public.estrai_campo_ocap(ocap_reclist,'#{label}') as rv FROM #{Book.table_name} WHERE enum=#{record_enum}"
     Book.connection.execute(sql)[0]['rv']
