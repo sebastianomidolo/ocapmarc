@@ -43,10 +43,18 @@ class Book < ActiveRecord::Base
     Book.estrai_campi('nopr',self.enum)
   end
 
-  def nat # S periodico, M monografia, N spoglio, W 
-    sql="select public.estrai_natura_ocap(ocap_reclist) as rv FROM #{Book.table_name} WHERE enum=#{self.id}"
-    a = Book.connection.execute(sql)[0]['rv']
+  def leader_bib_level
+    h={'M'=>'m','N'=>'a','S'=>'s','C'=>'c'}
+    v=h[self.db_nat]
+    v.nil? ? 'm' : v
+  end
 
+  def db_nat # S periodico, M monografia, N spoglio
+    sql="select public.estrai_natura_ocap(ocap_reclist) as rv FROM #{Book.table_name} WHERE enum=#{self.id}"
+    Book.connection.execute(sql)[0]['rv']
+  end
+
+  def nat
     #B (20) Titolo di raggruppamento non controllato
     #C (1) Collezione
     #M (6122) Monografie = BK
@@ -54,14 +62,14 @@ class Book < ActiveRecord::Base
     #P (1) Titolo parallelo
     #S (966) Periodici = CR
     #U (2) Soggetto
-    case a
+    case self.db_nat
     when "M"
       "BK"
     when "S"
       "CR"
     else
-      puts "natura indefinita " + a
-      a
+      puts "natura indefinita " + self.db_nat
+      self.db_nat
     end
   end
 
@@ -75,48 +83,41 @@ class Book < ActiveRecord::Base
 
   def luogo_edizione
     return nil if self.plpuye.nil?
-    self.plpuye.split(/,|:/).first  
+    v=self.plpuye.split(/,|:/).first
+    v.blank? ? nil : v.strip
   end
 
   def editore_edizione
     return nil if self.plpuye.nil?
     ed = self.plpuye.split(/,|:/,2).last
     return nil if ed.nil?
-    ed.split(/,/).first 
+    v=ed.split(/,/).first
+    v.blank? ? nil : v.strip
   end
 
   def anno_edizione
     return nil if self.plpuye.nil?
     ed = self.plpuye.split(/,|:/,2).last
     return nil if ed.nil?
-    ed.split(/,/).last
+    v=ed.split(/,/).last
+    v.blank? ? nil : v.strip    
   end
 
-	# Prova LDR
-
-  def aLDR
-    case nat
-    when "BK"
-      "    nam"
-    when "CR"
-      "    nas"
-    when "N"
-      "    naa"
-    else
-			"    n"
-    end
-  end
-	
   def rec100a
-    '20161001         |||u0itay50'
+    '20161001         u||y0itay50'
   end
 
   def to_unimarc
     record = MARC::Record.new()
     puts "enum: #{enum}"
 
-    # LDR NON FUNZIONA
-    # record.append(MARC::DataField.new('LDR', '',  '', ['', aLDR]))
+    # http://unimarc-it.wikidot.com/leader
+    # [5 - Status]
+    # [6 - Tipo di record]
+    # [7 - Livello bibliografico]
+    record.leader[5]='n'
+    record.leader[6]='a'
+    record.leader[7]=self.leader_bib_level
 
     # 001
     record.append(MARC::ControlField.new('001', self.enum.to_s))
